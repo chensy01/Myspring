@@ -27,9 +27,21 @@ public class CsyApplicationContext {
             try {
                 //获取扫描的包下面的所有文件
                 URL url = classLoader.getResource(path);
-
                 File file = new File((url).getFile());
+                // 这里应该是一个目录，如果返回false，可能有以下几个原因：
+                // 1. 文件路径不正确
+                // 2. 没有足够的权限访问该目录
+                // 3. 文件系统出现问题
+                // 为了调试，我们可以添加一些日志输出
+                String projectRoot = System.getProperty("user.dir");
+                System.out.println("Project root: " + projectRoot);
+                System.out.println("File path: " + file.getAbsolutePath());
+                System.out.println("Is directory: " + file.isDirectory());
+                System.out.println("Exists: " + file.exists());
+                System.out.println("Can read: " + file.canRead());
+                
                 if(file.isDirectory()) {
+                    
                     File[] files = file.listFiles();
                     for (File f : files) {
                         if (f.getName().endsWith(".class")) { //只扫描class文件
@@ -78,7 +90,7 @@ public class CsyApplicationContext {
             Constructor<?> constructor = beanDefinition.getBeanClass().getConstructor(); //获取构造函数
             Object bean = constructor.newInstance(); //创建bean实例
 
-            //注入
+            //实现自动注入，利用反射获取类上所有属性，判断是否有Autowired注解，如果有则进行自动注入
             for (Field field : beanDefinition.getBeanClass().getDeclaredFields()) {
                 if (field.isAnnotationPresent(Autowired.class)) {
                     field.setAccessible(true);
@@ -106,14 +118,12 @@ public class CsyApplicationContext {
         if ("singleton".equals(beanDefinition.getScope())) {
             Object bean = beanMap.get(beanDefinition.getBeanName());
             if(bean == null){
-                bean = createBean(beanDefinition);
+                bean = createBean(beanDefinition);//这里非常关键，如果缓存中没有就创建一个，并放入缓存中
                 beanMap.put(beanDefinition.getBeanName(), bean);
-                return bean;
-            }else{
-                return bean;
             }
+            return bean;
         }else {
-            return createBean(beanDefinition);
+            return createBean(beanDefinition);//如果是prototype，就直接创建一个，这里可能会存在递归生成的情况，因为循环依赖的问题
         }
     }
 }
